@@ -26,8 +26,8 @@ if ['solo', 'util'].include?(node[:instance_role])
     end
     
     template "/etc/monit.d/resque_scheduler_#{app}.monitrc" do 
-      owner 'root' 
-      group 'root' 
+      owner node[:owner_name]
+      group node[:owner_name]
       mode 0644 
       source "monitrc.conf.erb" 
       variables({
