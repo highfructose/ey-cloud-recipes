@@ -1,22 +1,103 @@
 #!/bin/sh
-app_name=$2
 
-cd /data/$app_name/current
+CURDIR=`pwd`
 
-case "$1" in
-  start)
-    export RAILS_ENV=$3
-    export VERBOSE=1
+usage() {
+  echo "Usage: $0 <appname> {start|stop} <environment>"
+  exit 1
+}
 
-    nohup rake resque:scheduler >> log/resque_scheduler.log&
-    pid=$!
-    if [ "$?" -eq "0" ]; then
-      echo $pid > /var/run/engineyard/resque_scheduler/$app_name/resque_scheduler.pid
-    fi
-    ;;
-  stop)
-    kill -s QUIT `cat /var/run/engineyard/resque_scheduler/$app_name/resque_scheduler.pid` && rm -f /var/run/engineyard/resque_scheduler/$app_name/resque_scheduler.pid
-    ;;
-esac
+if [ $# -lt 3 ]; then usage; fi
 
-exit 0
+if [ "`whoami`" != "root" ]; then
+  logger -t `basename $0` -s "Must be run as root"
+  exit 1
+fi
+
+APP=$1; ACTION=$2; RAILS_ENV=$3;
+
+clean_exit() {
+  cd $CURDIR
+  exit $RESULT
+}
+
+LOG_FILE="/data/$APP/current/log/resque_scheduler.log"
+LOCK_FILE="/tmp/resque-scheduler.monit-lock"
+PID_FILE="/var/run/engineyard/resque_scheduler/$APP/resque_scheduler.pid"
+COMMAND="/usr/bin/rake -f /data/$APP/current/Rakefile APP_ROOT=/data/$APP/current RAILS_ENV=$RAILS_ENV VERBOSE=1 resque:scheduler"
+
+if [ -d /data/$APP/current ]; then
+  USER=`stat -c"%U" /data/$APP/current`
+
+  if [ ! -d /var/run/engineyard/resque_scheduler/$APP ]; then
+    mkdir -p /var/run/engineyard/resque_scheduler/$APP
+  fi
+
+  if [ -f $LOCK_FILE ]; then
+    logger -t "monit-resque-scheduler:" "Monit already messing with (`cat $LOCK_FILE`)"
+    RESULT=1
+    clean_exit
+  else
+    echo $$ > $LOCK_FILE
+  fi
+
+  case "$ACTION" in
+    start)
+      cd /data/$APP/current
+      logger -t "monit-resque-scheduler:" "Starting scheduler"
+      if [ -f $PID_FILE ]; then
+        PID=`cat $PID_FILE`
+        if [ -d /proc/$PID ]; then
+          logger -t "monit-resque-scheduler:" "Scheduler is already running with $PID."
+          RESULT=1
+        else
+          rm -f $PID_FILE
+          logger -t "monit-resque-scheduler:" "Removing stale pid file ($PID_FILE) for pid $PID"
+        fi
+      fi
+      if [ ! -f $PID_FILE ]; then
+        exec su -c"$COMMAND" $USER >> $LOG_FILE 2>&1 &
+        RESULT=$?
+        logger -t "monit-resque-scheduler:" "Started with pid $! and exit $RESULT"
+        echo $! > $PID_FILE
+      else
+        RESULT=1
+      fi
+      rm $LOCK_FILE
+      clean_exit
+      ;;
+    stop)
+      logger -t "monit-resque-scheduler:" "Stopping scheduler"
+      if [ -f $PID_FILE ]; then
+        PID=`cat $PID_FILE`
+        for child in $(ps axo pid,ppid | awk "{ if ( \$2 == `cat $PID_FILE` ) { print \$1 }}");
+        do
+          kill -s QUIT $child;
+          SLEEP_COUNT=0
+          while [ -e /proc/$child ]; do
+            sleep .25
+            let "SLEEP_COUNT+=1"
+            # Wait for 30 seconds
+            if(( "$SLEEP_COUNT" > 120 )); then
+              kill -9 $child 2>/dev/null; true
+              logger -t "monit-resque-scheduler:" "Murdering scheduler with $PID"
+              break
+            fi
+          done
+        done
+      fi
+      [ -e "$PID_FILE" -a -d /proc/$PID ] && kill -s TERM $PID
+      [ -e "$PID_FILE" -a ! -d /proc/$PID ] && rm -f $PID_FILE
+      rm $LOCK_FILE
+      RESULT=0
+      clean_exit
+      ;;
+    *)
+      usage
+      rm $LOCK_FILE
+      ;;
+    esac
+else
+  echo "/data/$APP/current doesn't exist."
+  usage
+fi

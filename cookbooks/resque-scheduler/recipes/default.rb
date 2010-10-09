@@ -11,13 +11,6 @@ if ['solo', 'util'].include?(node[:instance_role])
 
   node[:applications].each do |app, data|
     
-    directory "/var/run/engineyard/resque_scheduler/#{app}" do
-      owner node[:owner_name]
-      group node[:owner_name]
-      mode 0755
-      recursive true
-    end
-    
     template "/engineyard/bin/resque_scheduler" do
       owner node[:owner_name]
       group node[:owner_name]
