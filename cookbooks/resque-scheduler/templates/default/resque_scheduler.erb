@@ -1,0 +1,22 @@
+#!/bin/sh
+app_name=$2
+
+cd /data/$app_name/current
+
+case "$1" in
+  start)
+    export RAILS_ENV=$3
+    export VERBOSE=1
+
+    nohup rake resque:scheduler >> log/resque_scheduler.log&
+    pid=$!
+    if [ "$?" -eq "0" ]; then
+      echo $pid > /var/run/engineyard/resque_scheduler/$app_name/resque_scheduler.pid
+    fi
+    ;;
+  stop)
+    kill -s QUIT `cat /var/run/engineyard/resque_scheduler/$app_name/resque_scheduler.pid` && rm -f /var/run/engineyard/resque_scheduler/$app_name/resque_scheduler.pid
+    ;;
+esac
+
+exit 0
