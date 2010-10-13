@@ -65,3 +65,6 @@ require_recipe "resque-scheduler"
 
 #uncomment to include the eybackup_verbose recipe
 #require_recipe "eybackup_verbose"
+
+#uncomment to run the passenger recipe
+require_recipe "passenger"
