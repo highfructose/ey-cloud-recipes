@@ -67,7 +67,10 @@ require_recipe "resque_scheduler"
 #require_recipe "eybackup_verbose"
 
 #uncomment to run the passenger recipe
-require_recipe "passenger"
+# require_recipe "passenger"
 
 #uncomment to run the nginx recipe
-require_recipe "nginx"
+# require_recipe "nginx"
+
+#uncomment to run the nginx_passenger recipe
+require_recipe "nginx_passenger"
