@@ -50,7 +50,7 @@
 require_recipe "resque"
 
 #uncomment to run the resque-scheduler recipe
-require_recipe "resque-scheduler"
+require_recipe "resque_scheduler"
 
 #uncomment to run the redis recipe
 #require_recipe "redis"
