@@ -32,8 +32,8 @@
 # require_recipe "mongodb"
 
 #uncomment to run the sunspot recipe
-# require_recipe "sunspot"
-#
+require_recipe "sunspot"
+
 #uncomment to run the exim recipe
 #exim_auth "auth" do
 #  my_hostname "my_hostname.com"
