@@ -58,11 +58,13 @@ node[:applications].each do |app,data|
   gem_package "sunspot_rails" do
     source "http://gemcutter.org"
     action :install
+    version "1.2.rc4"
   end
   
   gem_package "nokogiri" do
     source "http://gemcutter.org"
     action :install
+    version "1.4.3.1"
   end
  
   execute "install-sunspot-solr" do
